@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>전사 물품재고 현황 통합 대시보드</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 50: '#eff6ff', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8' }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen flex flex-col">
+
+    <!-- Top Navigation / Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-brand-600 text-white p-2 rounded-xl shadow-md flex items-center justify-center">
+                    <i class="fa-solid fa-boxes-stacked text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-slate-900 leading-tight">전사 물품재고 통합 대시보드</h1>
+                    <p class="text-xs text-slate-500">기준: 창고1(수도권) 및 창고2(영남권) 실시간 동기화 완료</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <button onclick="triggerFileUpload()" class="inline-flex items-center px-3.5 py-2 border border-slate-300 text-xs font-semibold rounded-lg text-slate-700 bg-white hover:bg-slate-50 transition shadow-sm">
+                    <i class="fa-solid fa-file-excel text-emerald-600 mr-1.5 text-sm"></i> 새 엑셀 업로드 갱신
+                </button>
+                <input type="file" id="excelUpload" class="hidden" accept=".xlsx, .xls" onchange="handleFileAlert(event)">
+                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                    <span class="w-2 h-2 mr-1.5 bg-emerald-500 rounded-full animate-pulse"></span> 실시간 연동중
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow space-y-8">
+
+        <!-- 1. 한눈에 보는 전사 재고 요약 지표 (KPI Cards) -->
+        <section>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                <!-- KPI 1 -->
+                <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:shadow-md transition relative overflow-hidden group">
+                    <div class="absolute right-4 top-4 bg-blue-50 text-brand-600 p-3 rounded-xl group-hover:scale-110 transition">
+                        <i class="fa-solid fa-box text-xl"></i>
+                    </div>
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">총 관리 품목 수</p>
+                    <div class="mt-2 flex items-baseline">
+                        <span class="text-3xl font-extrabold text-slate-900">25</span>
+                        <span class="ml-2 text-xs font-medium text-slate-500">종 (전체 합산)</span>
+                    </div>
+                    <div class="mt-3 flex items-center text-xs text-slate-500">
+                        <span class="text-emerald-600 font-semibold mr-1"><i class="fa-solid fa-arrow-up"></i> 수도권 1,482개</span> | 영남권 735개
+                    </div>
+                </div>
+
+                <!-- KPI 2 -->
+                <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:shadow-md transition relative overflow-hidden group">
+                    <div class="absolute right-4 top-4 bg-emerald-50 text-emerald-600 p-3 rounded-xl group-hover:scale-110 transition">
+                        <i class="fa-solid fa-won-sign text-xl"></i>
+                    </div>
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">총 재고 자산 평가액</p>
+                    <div class="mt-2 flex items-baseline">
+                        <span class="text-3xl font-extrabold text-slate-900">3,448</span>
+                        <span class="ml-1 text-sm font-bold text-slate-700">만원</span>
+                    </div>
+                    <div class="mt-3 text-xs text-slate-500">
+                        소모품(33.1%) > 사무용품(27.6%) 순 비중
+                    </div>
+                </div>
+
+                <!-- KPI 3 -->
+                <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:shadow-md transition relative overflow-hidden group border-l-4 border-l-rose-500">
+                    <div class="absolute right-4 top-4 bg-rose-50 text-rose-600 p-3 rounded-xl group-hover:scale-110 transition">
+                        <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+                    </div>
+                    <p class="text-xs font-semibold text-rose-600 uppercase tracking-wider">긴급 발주 필요 품목</p>
+                    <div class="mt-2 flex items-baseline">
+                        <span class="text-3xl font-extrabold text-rose-600">13</span>
+                        <span class="ml-2 text-xs font-medium text-rose-500">종 (안전재고 미달)</span>
+                    </div>
+                    <div class="mt-3 flex items-center text-xs text-rose-600 font-medium">
+                        <i class="fa-solid fa-circle-exclamation mr-1"></i> 즉시 발주 검토 요망
+                    </div>
+                </div>
+
+                <!-- KPI 4 -->
+                <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:shadow-md transition relative overflow-hidden group">
+                    <div class="absolute right-4 top-4 bg-amber-50 text-amber-600 p-3 rounded-xl group-hover:scale-110 transition">
+                        <i class="fa-solid fa-clock-rotate-left text-xl"></i>
+                    </div>
+                    <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">장기 미출고 악성 재고</p>
+                    <div class="mt-2 flex items-baseline">
+                        <span class="text-3xl font-extrabold text-slate-900">2</span>
+                        <span class="ml-2 text-xs font-medium text-slate-500">종 (단종/폐기 대상)</span>
+                    </div>
+                    <div class="mt-3 text-xs text-amber-600 font-medium">
+                        <i class="fa-solid fa-circle-info mr-1"></i> 구형 마우스 및 VGA 케이블
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. 시각적 추이 및 카테고리 분석 (Interactive Charts) -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Donut Chart: 카테고리별 자산 점유율 -->
+            <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-base font-bold text-slate-900">카테고리별 자산 점유율</h2>
+                        <span class="text-xs text-slate-400 bg-slate-100 px-2 py-1 rounded">클릭 시 필터 적용</span>
+                    </div>
+                    <div class="relative h-64 flex items-center justify-center">
+                        <canvas id="categoryDonutChart"></canvas>
+                    </div>
+                </div>
+                <div class="mt-4 pt-4 border-t border-slate-100 flex justify-around text-center text-xs">
+                    <div><span class="font-bold text-blue-600">소모품</span> 33.1%</div>
+                    <div><span class="font-bold text-emerald-600">사무용품</span> 27.6%</div>
+                    <div><span class="font-bold text-amber-600">물류자재</span> 26.2%</div>
+                </div>
+            </div>
+
+            <!-- Bar Chart: 품목별 현재재고 vs 안전재고 비교 (TOP 10 위험 품목) -->
+            <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm lg:col-span-2 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-base font-bold text-slate-900">긴급 발주 필요 품목: 현재재고 vs 적정 안전재고 (TOP 10)</h2>
+                        <span class="text-xs text-rose-600 font-medium bg-rose-50 px-2 py-1 rounded">적정기준: 52.5개</span>
+                    </div>
+                    <div class="relative h-64">
+                        <canvas id="stockBarChart"></canvas>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-400 mt-4 text-right">마우스 오버 시 상세 수량 및 권장 발주량 확인 가능</p>
+            </div>
+        </section>
+
+        <!-- 3. 스마트 재고 테이블 (Smart Inventory Table) -->
+        <section class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <!-- Table Header Toolbar -->
+            <div class="p-5 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div class="flex items-center space-x-2">
+                    <div class="w-3 h-6 bg-brand-600 rounded-full"></div>
+                    <h2 class="text-lg font-bold text-slate-900">상세 재고 명세 및 액션 센터</h2>
+                    <span id="activeFilterBadge" class="hidden text-xs bg-brand-50 text-brand-700 px-2.5 py-1 rounded-full font-medium">필터 적용됨 (<span id="filterName">전체</span>) <button onclick="resetFilter()" class="ml-1 text-brand-900 hover:text-rose-600 font-bold">&times;</button></span>
+                </div>
+                <div class="flex flex-wrap items-center gap-3">
+                    <!-- Search Input -->
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                            <i class="fa-solid fa-search"></i>
+                        </span>
+                        <input type="text" id="searchInput" onkeyup="filterTable()" placeholder="품목명 또는 코드 실시간 검색..." 
+                            class="pl-9 pr-4 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white w-64 transition">
+                    </div>
+                    <!-- Export Excel Button -->
+                    <button onclick="exportTableToExcel()" class="inline-flex items-center px-3.5 py-2 border border-slate-300 text-xs font-semibold rounded-lg text-slate-700 bg-white hover:bg-slate-50 transition shadow-sm">
+                        <i class="fa-solid fa-file-arrow-down text-emerald-600 mr-1.5 text-sm"></i> 엑셀 다운로드
+                    </button>
+                </div>
+            </div>
+
+            <!-- Table Container -->
+            <div class="overflow-x-auto">
+                <table id="inventoryTable" class="w-full text-left border-collapse text-xs">
+                    <thead>
+                        <tr class="bg-slate-100 text-slate-600 uppercase font-semibold tracking-wider border-b border-slate-200">
+                            <th class="py-3 px-4 cursor-pointer hover:bg-slate-200" onclick="sortTable(0)">No <i class="fa-solid fa-sort ml-1"></i></th>
+                            <th class="py-3 px-4 cursor-pointer hover:bg-slate-200" onclick="sortTable(1)">품목코드 <i class="fa-solid fa-sort ml-1"></i></th>
+                            <th class="py-3 px-4 cursor-pointer hover:bg-slate-200" onclick="sortTable(2)">카테고리 <i class="fa-solid fa-sort ml-1"></i></th>
+                            <th class="py-3 px-4 cursor-pointer hover:bg-slate-200" onclick="sortTable(3)">품목명 <i class="fa-solid fa-sort ml-1"></i></th>
+                            <th class="py-3 px-4 text-right">입고단가(원)</th>
+                            <th class="py-3 px-4 text-right">수도권(창고1)</th>
+                            <th class="py-3 px-4 text-right">영남권(창고2)</th>
+                            <th class="py-3 px-4 text-right cursor-pointer hover:bg-slate-200" onclick="sortTable(7)">총 재고수량 <i class="fa-solid fa-sort ml-1"></i></th>
+                            <th class="py-3 px-4 text-right cursor-pointer hover:bg-slate-200" onclick="sortTable(8)">총 재고금액(원) <i class="fa-solid fa-sort ml-1"></i></th>
+                            <th class="py-3 px-4 text-center">재고 상태</th>
+                            <th class="py-3 px-4 text-center">원클릭 액션</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200 text-slate-700 font-medium">
+                        <!-- Data rows loaded from Excel -->
+                        <tr class="hover:bg-slate-50 transition" data-category="소모품">
+                            <td class="py-3 px-4 text-slate-500">1</td>
+                            <td class="py-3 px-4 font-mono text-slate-600">CON-201</td>
+                            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-semibold">소모품</span></td>
+                            <td class="py-3 px-4 font-bold text-slate-900">KF94 방역마스크 대형 (50매)</td>
+                            <td class="py-3 px-4 text-right">15,000</td>
+                            <td class="py-3 px-4 text-right">300</td>
+                            <td class="py-3 px-4 text-right">150</td>
+                            <td class="py-3 px-4 text-right font-bold text-slate-900">450</td>
+                            <td class="py-3 px-4 text-right">6,750,000</td>
+                            <td class="py-3 px-4 text-center"><span class="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-800">과다 (정상)</span></td>
+                            <td class="py-3 px-4 text-center">
+                                <button onclick="generateOrder('CON-201', 'KF94 방역마스크 대형 (50매)', 0)" class="px-2.5 py-1 bg-slate-100 hover:bg-brand-600 hover:text-white text-slate-700 rounded transition font-semibold">발주서생성</button>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-slate-50 transition" data-category="소모품">
+                            <td class="py-3 px-4 text-slate-500">2</td>
+                            <td class="py-3 px-4 font-mono text-slate-600">CON-202</td>
+                            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-semibold">소모품</span></td>
+                            <td class="py-3 px-4 font-bold text-slate-900">손소독제 500ml 펌프형</td>
+                            <td class="py-3 px-4 text-right">5,500</td>
+                            <td class="py-3 px-4 text-right">60</td>
+                            <td class="py-3 px-4 text-right">0</td>
+                            <td class="py-3 px-4 text-right font-bold text-slate-900">60</td>
+                            <td class="py-3 px-4 text-right">330,000</td>
+                            <td class="py-3 px-4 text-center"><span class="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">정상</span></td>
+                            <td class="py-3 px-4 text-center">
+                                <button onclick="generateOrder('CON-202', '손소독제 500ml 펌프형', 0)" class="px-2.5 py-1 bg-slate-100 hover:bg-brand-600 hover:text-white text-slate-700 rounded transition font-semibold">발주서생성</button>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-slate-50 transition" data-category="소모품">
+                            <td class="py-3 px-4 text-slate-500">3</td>
+                            <td class="py-3 px-4 font-mono text-slate-600">CON-203</td>
+                            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-semibold">소모품</span></td>
+                            <td class="py-3 px-4 font-bold text-slate-900">물티슈 100매 캡형 (10팩)</td>
+                            <td class="py-3 px-4 text-right">13,000</td>
+                            <td class="py-3 px-4 text-right">110</td>
+                            <td class="py-3 px-4 text-right">50</td>
+                            <td class="py-3 px-4 text-right font-bold text-slate-900">160</td>
+                            <td class="py-3 px-4 text-right">2,080,000</td>
+                            <td class="py-3 px-4 text-center"><span class="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-800">과다 (정상)</span></td>
+                            <td class="py-3 px-4 text-center">
+                                <button onclick="generateOrder('CON-203', '물티슈 100매 캡형 (10팩)', 0)" class="px-2.5 py-1 bg-slate-100 hover:bg-brand-600 hover:text-white text-slate-700 rounded transition font-semibold">발주서생성</button>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-slate-50 transition bg-rose-50/40" data-category="소모품">
+                            <td class="py-3 px-4 text-slate-500">4</td>
+                            <td class="py-3 px-4 font-mono text-slate-600">CON-204</td>
+                            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-semibold">소모품</span></td>
+                            <td class="py-3 px-4 font-bold text-slate-900">종이컵 6.5온스 (1000개입)</td>
+                            <td class="py-3 px-4 text-right">16,000</td>
+                            <td class="py-3 px-4 text-right">15</td>
+                            <td class="py-3 px-4 text-right">10</td>
+                            <td class="py-3 px-4 text-right font-bold text-slate-900">25</td>
+                            <td class="py-3 px-4 text-right">400,000</td>
+                            <td class="py-3 px-4 text-center"><span class="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-700 animate-pulse">발주필요(위험)</span></td>
+                            <td class="py-3 px-4 text-center">
+                                <button onclick="generateOrder('CON-204', '종이컵 6.5온스 (1000개입)', 28)" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded transition font-semibold shadow-sm">원클릭 발주</button>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-slate-50 transition bg-rose-50/40" data-category="소모품">
+                            <td class="py-3 px-4 text-slate-500">5</td>
+                            <td class="py-3 px-4 font-mono text-slate-600">CON-205</td>
+                            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-semibold">소모품</span></td>
+                            <td class="py-3 px-4 font-bold text-slate-900">점보롤 화장지 2겹 (16롤)</td>
+                            <td class="py-3 px-4 text-right">26,000</td>
+                            <td class="py-3 px-4 text-right">40</td>
+                            <td class="py-3 px-4 text-right">0</td>
+                            <td class="py-3 px-4 text-right font-bold text-slate-900">40</td>
+                            <td class="py-3 px-4 text-right">1,040,000</td>
+                            <td class="py-3 px-4 text-center"><span class="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-700 animate-pulse">발주필요(위험)</span></td>
+                            <td class="py-3 px-4 text-center">
+                                <button onclick="generateOrder('CON-205', '점보롤 화장지 2겹 (16롤)', 13)" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded transition font-semibold shadow-sm">원클릭 발주</button>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-slate-50 transition bg-rose-50/40" data-category="소모품">
+                            <td class="py-3 px-4 text-slate-500">6</td>
+                            <td class="py-3 px-4 font-mono text-slate-600">CON-206</td>
+                            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-semibold">소모품</span></td>
+                            <td class="py-3 px-4 font-bold text-slate-900">종이타월 핸드타올 (5000매)</td>
+                            <td class="py-3 px-4 text-right">23,000</td>
+                            <td class="py-3 px-4 text-right">0</td>
+                            <td class="py-3 px-4 text-right">35</td>
+                            <td class="py-3 px-4 text-right font-bold text-slate-900">35</td>
+                            <td class="py-3 px-4 text-right">805,000</td>
+                            <td class="py-3 px-4 text-center"><span class="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-700 animate-pulse">발주필요(위험)</span></td>
+                            <td class="py-3 px-4 text-center">
+                                <button onclick="generateOrder('CON-206', '종이타월 핸드타올 (5000매)', 18)" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded transition font-semibold shadow-sm">원클릭 발주</button>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-slate-50 transition" data-category="전자부품">
+                            <td class="py-3 px-4 text-slate-500">7</td>
+                            <td class="py-3 px-4 font-mono text-slate-600">ELE-101</td>
+                            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 font-semibold">전자부품</span></td>
+                            <td class="py-3 px-4 font-bold text-slate-900">CAT.6 기가비트 랜케이블 3m</td>
+                            <td class="py-3 px-4 text-right">4,800</td>
+                            <td class="py-3 px-4 text-right">140</td>
+                            <td class="py-3 px-4 text-right">60</td>
+                            <td class="py-3 px-4 text-right font-bold text-slate-900">200</td>
+                            <td class="py-3 px-4 text-right">960,000</td>
+                            <td class="py-3 px-4 text-center"><span class="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-800">과다 (정상)</span></td>
+                            <td class="py-3 px-4 text-center">
+                                <button onclick="generateOrder('ELE-101', 'CAT.6 기가비트 랜케이블 3m', 0)" class="px-2.5 py-1 bg-slate-100 hover:bg-brand-600 hover:text-white text-slate-700 rounded transition font-semibold">발주서생성</button>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-slate-50 transition bg-rose-50/40" data-category="전자부품">
+                            <td class="py-3 px-4 text-slate-500">8</td>
+                            <td class="py-3 px-4 font-mono text-slate-600">ELE-102</td>
+                            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 font-semibold">전자부품</span></td>
+                            <td class="py-3 px-4 font-bold text-slate-900">고속 멀티 충전기 65W PD</td>
+                            <td class="py-3 px-4 text-right">42,000</td>
+                            <td class="py-3 px-4 text-right">12</td>
+                            <td class="py-3 px-4 text-right">3</td>
+                            <td class="py-3 px-4 text-right font-bold text-slate-900">15</td>
+                            <td class="py-3 px-4 text-right">630,000</td>
+                            <td class="py-3 px-4 text-center"><span class="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-700 animate-pulse">발주필요(위험)</span></td>
+                            <td class="py-3 px-4 text-center">
+                                <button onclick="generateOrder('ELE-102', '고속 멀티 충전기 65W PD', 38)" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded transition font-semibold shadow-sm">원클릭 발주</button>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-slate-50 transition bg-rose-50/40" data-category="전자부품">
+                            <td class="py-3 px-4 text-slate-500">9</td>
+                            <td class="py-3 px-4 font-mono text-slate-600">ELE-103</td>
+                            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 font-semibold">전자부품</span></td>
+                            <td class="py-3 px-4 font-bold text-slate-900">HDMI 2.1 케이블 2m</td>
+                            <td class="py-3 px-4 text-right">8,500</td>
+                            <td class="py-3 px-4 text-right">35</td>
+                            <td class="py-3 px-4 text-right">15</td>
+                            <td class="py-3 px-4 text-right font-bold text-slate-900">50</td>
+                            <td class="py-3 px-4 text-right">425,000</td>
+                            <td class="py-3 px-4 text-center"><span class="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-700 animate-pulse">발주필요(위험)</span></td>
+                            <td class="py-3 px-4 text-center">
+                                <button onclick="generateOrder('ELE-103', 'HDMI 2.1 케이블 2m', 3)" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded transition font-semibold shadow-sm">원클릭 발주</button>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-slate-50 transition bg-rose-50/40" data-category="전자부품">
+                            <td class="py-3 px-4 text-slate-500">10</td>
+                            <td class="py-3 px-4 font-mono text-slate-600">ELE-104</td>
+                            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 font-semibold">전자부품</span></td>
+                            <td class="py-3 px-4 font-bold text-slate-900">외장 SSD 1TB 휴대용</td>
+                            <td class="py-3 px-4 text-right">125,000</td>
+                            <td class="py-3 px-4 text-right">8</td>
+                            <td class="py-3 px-4 text-right">2</td>
+                            <td class="py-3 px-4 text-right font-bold text-slate-900">10</td>
+                            <td class="py-3 px-4 text-right">1,250,000</td>
+                            <td class="py-3 px-4 text-center"><span class="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-700 animate-pulse">발주필요(위험)</span></td>
+                            <td class="py-3 px-4 text-center">
+                                <button onclick="generateOrder('ELE-104', '외장 SSD 1TB 휴대용', 43)" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded transition font-semibold shadow-sm">원클릭 발주</button>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-slate-50 transition" data-category="전자부품">
+                            <td class="py-3 px-4 text-slate-500">11</td>
+                            <td class="py-3 px-4 font-mono text-slate-600">ELE-105</td>
+                            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 font-semibold">전자부품</span></td>
+                            <td class="py-3 px-4 font-bold text-slate-900">USB-C to C 100W 케이블</td>
+                            <td class="py-3 px-4 text-right">6,500</td>
+                            <td class="py-3 px-4 text-right">95</td>
+                            <td class="py-3 px-4 text-right">0</td>
+                            <td class="py-3 px-4 text-right font-bold text-slate-900">95</td>
+                            <td class="py-3 px-4 text-right">617,500</td>
+                            <td class="py-3 px-4 text-center"><span class="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">정상</span></td>
+                            <td class="py-3 px-4 text-center">
+                                <button onclick="generateOrder('ELE-105', 'USB-C to C 100W 케이블', 0)" class="px-2.5 py-1 bg-slate-100 hover:bg-brand-600 hover:text-white text-slate-700 rounded transition font-semibold">발주서생성</button>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-slate-50 transition bg-amber-50/50" data-category="전자부품">
+                            <td class="py-3 px-4 text-slate-500">12</td>
+                            <td class="py-3 px-4 font-mono text-slate-600">ELE-106</td>
+                            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 font-semibold">전자부품</span></td>
+                            <td class="py-3 px-4 font-bold text-slate-900">구형 VGA 케이블 (단종) <span class="text-[10px] bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded ml-1">악성재고</span></td>
+                            <td class="py-3 px-4 text-right">3,000</td>
+                            <td class="py-3 px-4 text-right">0</td>
+                            <td class="py-3 px-4 text-right">0</td>
+                            <td class="py-3 px-4 text-right font-bold text-slate-900">0</td>
+                            <td class="py-3 px-4 text-right">0</td>
+                            <td class="py-3 px-4 text-center"><span class="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800">품절 / 폐기대상</span></td>
+                            <td class="py-3 px-4 text-center">
+                                <button onclick="generateOrder('ELE-106', '구형 VGA 케이블 (단종)', 53)" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded transition font-semibold shadow-sm">원클릭 발주</button>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-slate-50 transition bg-rose-50/40" data-category="전자부품">
+                            <td class="py-3 px-4 text-slate-500">13</td>
+                            <td class="py-3 px-4 font-mono text-slate-600">ELE-107</td>
+                            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 font-semibold">전자부품</span></td>
+                            <td class="py-3 px-4 font-bold text-slate-900">무선 프리젠터 포인터</td>
+                            <td class="py-3 px-4 text-right">29,000</td>
+                            <td class="py-3 px-4 text-right">0</td>
+                            <td class="py-3 px-4 text-right">22</td>
+                            <td class="py-3 px-4 text-right font-bold text-slate-900">22</td>
+                            <td class="py-3 px-4 text-right">638,000</td>
+                            <td class="py-3 px-4 text-center"><span class="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-700 animate-pulse">발주필요(위험)</span></td>
+                            <td class="py-3 px-4 text-center">
+                                <button onclick="generateOrder('ELE-107', '무선 프리젠터 포인터', 31)" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded transition font-semibold shadow-sm">원클릭 발주</button>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-slate-50 transition" data-category="물류자재">
+                            <td class="py-3 px-4 text-slate-500">14</td>
+                            <td class="py-3 px-4 font-mono text-slate-600">LOG-301</td>
+                            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-semibold">물류자재</span></td>
+                            <td class="py-3 px-4 font-bold text-slate-900">택배박스 3호 (100매입)</td>
+                            <td class="py-3 px-4 text-right">45,000</td>
+                            <td class="py-3 px-4 text-right">85</td>
+                            <td class="py-3 px-4 text-right">40</td>
+                            <td class="py-3 px-4 text-right font-bold text-slate-900">125</td>
+                            <td class="py-3 px-4 text-right">5,625,000</td>
+                            <td class="py-3 px-4 text-center"><span class="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">정상</span></td>
+                            <td class="py-3 px-4 text-center">
+                                <button onclick="generateOrder('LOG-301', '택배박스 3호 (100매입)', 0)" class="px-2.5 py-1 bg-slate-100 hover:bg-brand-600 hover:text-white text-slate-700 rounded transition font-semibold">발주서생성</button>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-slate-50 transition bg-rose-50/40" data-category="물류자재">
+                            <td class="py-3 px-4 text-slate-500">15</td>
+                            <td class="py-3 px-4 font-mono text-slate-600">LOG-302</td>
+                            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-semibold">물류자재</span></td>
+                            <td class="py-3 px-4 font-bold text-slate-900">에어캡 롤 50cm x 50m</td>
+                            <td class="py-3 px-4 text-right">12,000</td>
+                            <td class="py-3 px-4 text-right">25</td>
+                            <td class="py-3 px-4 text-right">0</td>
+                            <td class="py-3 px-4 text-right font-bold text-slate-900">25</td>
+                            <td class="py-3 px-4 text-right">300,000</td>
+                            <td class="py-3 px-4 text-center"><span class="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-700 animate-pulse">발주필요(위험)</span></td>
+                            <td class="py-3 px-4 text-center">
+                                <button onclick="generateOrder('LOG-302', '에어캡 롤 50cm x 50m', 28)" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded transition font-semibold shadow-sm">원클릭 발주</button>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-slate-50 transition bg-rose-50/40" data-category="물류자재">
+                            <td class="py-3 px-4 text-slate-500">16</td>
+                            <td class="py-3 px-4 font-mono text-slate-600">LOG-303</td>
+                            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-semibold">물류자재</span></td>
+                            <td class="py-3 px-4 font-bold text-slate-900">박스테이프 투명 (50롤)</td>
+                            <td class="py-3 px-4 text-right">52,000</td>
+                            <td class="py-3 px-4 text-right">14</td>
+                            <td class="py-3 px-4 text-right">8</td>
+                            <td class="py-3 px-4 text-right font-bold text-slate-900">22</td>
+                            <td class="py-3 px-4 text-right">1,144,000</td>
+                            <td class="py-3 px-4 text-center"><span class="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-700 animate-pulse">발주필요(위험)</span></td>
+                            <td class="py-3 px-4 text-center">
+                                <button onclick="generateOrder('LOG-303', '박스테이프 투명 (50롤)', 31)" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded transition font-semibold shadow-sm">원클릭 발주</button>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-slate-50 transition bg-rose-50/40" data-category="물류자재">
+                            <td class="py-3 px-4 text-slate-500">17</td>
+                            <td class="py-3 px-4 font-mono text-slate-600">LOG-304</td>
+                            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-semibold">물류자재</span></td>
+                            <td class="py-3 px-4 font-bold text-slate-900">파레트 랩 (공업용 스트레치필름)</td>
+                            <td class="py-3 px-4 text-right">18,000</td>
+                            <td class="py-3 px-4 text-right">30</td>
+                            <td class="py-3 px-4 text-right">0</td>
+                            <td class="py-3 px-4 text-right font-bold text-slate-900">30</td>
+                            <td class="py-3 px-4 text-right">540,000</td>
+                            <td class="py-3 px-4 text-center"><span class="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-700 animate-pulse">발주필요(위험)</span></td>
+                            <td class="py-3 px-4 text-center">
+                                <button onclick="generateOrder('LOG-304', '파레트 랩 (공업용 스트레치필름)', 23)" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded transition font-semibold shadow-sm">원클릭 발주</button>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-slate-50 transition" data-category="물류자재">
+                            <td class="py-3 px-4 text-slate-500">18</td>
+                            <td class="py-3 px-4 font-mono text-slate-600">LOG-305</td>
+                            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-semibold">물류자재</span></td>
+                            <td class="py-3 px-4 font-bold text-slate-900">에어캡 완충봉투 소형 (100매)</td>
+                            <td class="py-3 px-4 text-right">19,000</td>
+                            <td class="py-3 px-4 text-right">0</td>
+                            <td class="py-3 px-4 text-right">75</td>
+                            <td class="py-3 px-4 text-right font-bold text-slate-900">75</td>
+                            <td class="py-3 px-4 text-right">1,425,000</td>
+                            <td class="py-3 px-4 text-center"><span class="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">정상</span></td>
+                            <td class="py-3 px-4 text-center">
+                                <button onclick="generateOrder('LOG-305', '에어캡 완충봉투 소형 (100매)', 0)" class="px-2.5 py-1 bg-slate-100 hover:bg-brand-600 hover:text-white text-slate-700 rounded transition font-semibold">발주서생성</button>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-slate-50 transition" data-category="사무용품">
+                            <td class="py-3 px-4 text-slate-500">19</td>
+                            <td class="py-3 px-4 font-mono text-slate-600">OFF-001</td>
+                            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold">사무용품</span></td>
+                            <td class="py-3 px-4 font-bold text-slate-900">A4 복사용지 (80g/박스)</td>
+                            <td class="py-3 px-4 text-right">28,000</td>
+                            <td class="py-3 px-4 text-right">120</td>
+                            <td class="py-3 px-4 text-right">80</td>
+                            <td class="py-3 px-4 text-right font-bold text-slate-900">200</td>
+                            <td class="py-3 px-4 text-right">5,600,000</td>
+                            <td class="py-3 px-4 text-center"><span class="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-800">과다 (정상)</span></td>
+                            <td class="py-3 px-4 text-center">
+                                <button onclick="generateOrder('OFF-001', 'A4 복사용지 (80g/박스)', 0)" class="px-2.5 py-1 bg-slate-100 hover:bg-brand-600 hover:text-white text-slate-700 rounded transition font-semibold">발주서생성</button>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-slate-50 transition" data-category="사무용품">
+                            <td class="py-3 px-4 text-slate-500">20</td>
+                            <td class="py-3 px-4 font-mono text-slate-600">OFF-002</td>
+                            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold">사무용품</span></td>
+                            <td class="py-3 px-4 font-bold text-slate-900">중성펜 0.5mm 흑색 (12입)</td>
+                            <td class="py-3 px-4 text-right">9,600</td>
+                            <td class="py-3 px-4 text-right">45</td>
+                            <td class="py-3 px-4 text-right">20</td>
+                            <td class="py-3 px-4 text-right font-bold text-slate-900">65</td>
+                            <td class="py-3 px-4 text-right">624,000</td>
+                            <td class="py-3 px-4 text-center"><span class="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">정상</span></td>
+                            <td class="py-3 px-4 text-center">
+                                <button onclick="generateOrder('OFF-002', '중성펜 0.5mm 흑색 (12입)', 0)" class="px-2.5 py-1 bg-slate-100 hover:bg-brand-600 hover:text-white text-slate-700 rounded transition font-semibold">발주서생성</button>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-slate-50 transition" data-category="사무용품">
+                            <td class="py-3 px-4 text-slate-500">21</td>
+                            <td class="py-3 px-4 font-mono text-slate-600">OFF-003</td>
+                            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold">사무용품</span></td>
+                            <td class="py-3 px-4 font-bold text-slate-900">투명 테이프 (50m, 6입)</td>
+                            <td class="py-3 px-4 text-right">7,200</td>
+                            <td class="py-3 px-4 text-right">80</td>
+                            <td class="py-3 px-4 text-right">40</td>
+                            <td class="py-3 px-4 text-right font-bold text-slate-900">120</td>
+                            <td class="py-3 px-4 text-right">864,000</td>
+                            <td class="py-3 px-4 text-center"><span class="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">정상</span></td>
+                            <td class="py-3 px-4 text-center">
+                                <button onclick="generateOrder('OFF-003', '투명 테이프 (50m, 6입)', 0)" class="px-2.5 py-1 bg-slate-100 hover:bg-brand-600 hover:text-white text-slate-700 rounded transition font-semibold">발주서생성</button>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-slate-50 transition bg-rose-50/40" data-category="사무용품">
+                            <td class="py-3 px-4 text-slate-500">22</td>
+                            <td class="py-3 px-4 font-mono text-slate-600">OFF-004</td>
+                            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold">사무용품</span></td>
+                            <td class="py-3 px-4 font-bold text-slate-900">무선 키보드 마우스 세트</td>
+                            <td class="py-3 px-4 text-right">35,000</td>
+                            <td class="py-3 px-4 text-right">18</td>
+                            <td class="py-3 px-4 text-right">5</td>
+                            <td class="py-3 px-4 text-right font-bold text-slate-900">23</td>
+                            <td class="py-3 px-4 text-right">805,000</td>
+                            <td class="py-3 px-4 text-center"><span class="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-700 animate-pulse">발주필요(위험)</span></td>
+                            <td class="py-3 px-4 text-center">
+                                <button onclick="generateOrder('OFF-004', '무선 키보드 마우스 세트', 30)" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded transition font-semibold shadow-sm">원클릭 발주</button>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-slate-50 transition" data-category="사무용품">
+                            <td class="py-3 px-4 text-slate-500">23</td>
+                            <td class="py-3 px-4 font-mono text-slate-600">OFF-005</td>
+                            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold">사무용품</span></td>
+                            <td class="py-3 px-4 font-bold text-slate-900">스테이플러 침 (10호/10입)</td>
+                            <td class="py-3 px-4 text-right">4,500</td>
+                            <td class="py-3 px-4 text-right">250</td>
+                            <td class="py-3 px-4 text-right">0</td>
+                            <td class="py-3 px-4 text-right font-bold text-slate-900">250</td>
+                            <td class="py-3 px-4 text-right">1,125,000</td>
+                            <td class="py-3 px-4 text-center"><span class="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-800">과다 (정상)</span></td>
+                            <td class="py-3 px-4 text-center">
+                                <button onclick="generateOrder('OFF-005', '스테이플러 침 (10호/10입)', 0)" class="px-2.5 py-1 bg-slate-100 hover:bg-brand-600 hover:text-white text-slate-700 rounded transition font-semibold">발주서생성</button>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-slate-50 transition bg-amber-50/50" data-category="사무용품">
+                            <td class="py-3 px-4 text-slate-500">24</td>
+                            <td class="py-3 px-4 font-mono text-slate-600">OFF-006</td>
+                            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold">사무용품</span></td>
+                            <td class="py-3 px-4 font-bold text-slate-900">구형 유선 마우스 (단종예정) <span class="text-[10px] bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded ml-1">악성재고</span></td>
+                            <td class="py-3 px-4 text-right">12,000</td>
+                            <td class="py-3 px-4 text-right">0</td>
+                            <td class="py-3 px-4 text-right">0</td>
+                            <td class="py-3 px-4 text-right font-bold text-slate-900">0</td>
+                            <td class="py-3 px-4 text-right">0</td>
+                            <td class="py-3 px-4 text-center"><span class="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800">품절 / 폐기대상</span></td>
+                            <td class="py-3 px-4 text-center">
+                                <button onclick="generateOrder('OFF-006', '구형 유선 마우스 (단종예정)', 53)" class="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded transition font-semibold shadow-sm">원클릭 발주</button>
+                            </td>
+                        </tr>
+                        <tr class="hover:bg-slate-50 transition" data-category="사무용품">
+                            <td class="py-3 px-4 text-slate-500">25</td>
+                            <td class="py-3 px-4 font-mono text-slate-600">OFF-007</td>
+                            <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold">사무용품</span></td>
+                            <td class="py-3 px-4 font-bold text-slate-900">화이트보드 마카 4색 세트</td>
+                            <td class="py-3 px-4 text-right">4,200</td>
+                            <td class="py-3 px-4 text-right">0</td>
+                            <td class="py-3 px-4 text-right">120</td>
+                            <td class="py-3 px-4 text-right font-bold text-slate-900">120</td>
+                            <td class="py-3 px-4 text-right">504,000</td>
+                            <td class="py-3 px-4 text-center"><span class="inline-flex px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">정상</span></td>
+                            <td class="py-3 px-4 text-center">
+                                <button onclick="generateOrder('OFF-007', '화이트보드 마카 4색 세트', 0)" class="px-2.5 py-1 bg-slate-100 hover:bg-brand-600 hover:text-white text-slate-700 rounded transition font-semibold">발주서생성</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <!-- Table Footer -->
+            <div class="p-4 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 flex justify-between items-center">
+                <span>총 25개 항목 중 표시 중</span>
+                <span class="font-semibold text-slate-700">전사 재고 자산 합계: ₩ 34,481,500</span>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-6 mt-12 text-center text-xs text-slate-400">
+        &copy; 2026 Enterprise Inventory Management System. All rights reserved. Professional UI Dashboard.
+    </span></footer>
+
+    <!-- Modal for Order Generation -->
+    <div id="orderModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-100 animate-in fade-in zoom-in duration-200">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+                <h3 class="text-base font-bold text-slate-900 flex items-center">
+                    <i class="fa-solid fa-file-invoice-dollar text-brand-600 mr-2"></i> 긴급 발주서 자동 생성
+                </h3>
+                <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 text-lg font-bold">&times;</button>
+            </div>
+            <div class="space-y-3 text-xs">
+                <div class="bg-slate-50 p-3 rounded-xl space-y-1.5 border border-slate-200">
+                    <p><span class="text-slate-500">품목 코드:</span> <span id="modalCode" class="font-mono font-bold text-slate-800"></span></p>
+                    <p><span class="text-slate-500">품 목 명:</span> <span id="modalName" class="font-bold text-slate-900"></span></p>
+                    <p><span class="text-slate-500">권장 발주량:</span> <span id="modalQty" class="font-bold text-rose-600 text-sm"></span> 개</p>
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">발주처 공급업체 선택</label>
+                    <select class="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-brand-500">
+                        <option>(주)엠RO 미래물류 상사 (기본 공급사)</option>
+                        <option>한국오피스 조달센터</option>
+                        <option>테크닉스 코리아 부품파트</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block font-semibold text-slate-700 mb-1">납품 요청 기한</label>
+                    <input type="date" value="2026-10-25" class="w-full border border-slate-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-brand-500">
+                </div>
+            </div>
+            <div class="flex space-x-3 pt-2">
+                <button onclick="closeModal()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2.5 rounded-xl transition">취소</button>
+                <button onclick="confirmOrder()" class="flex-1 bg-brand-600 hover:bg-brand-700 text-white font-semibold py-2.5 rounded-xl transition shadow-md">발주서 전송</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script Logic -->
+    <script>
+        // --- 1. Chart.js Initialization ---
+        // Donut Chart: 카테고리별 자산 점유율
+        const donutCtx = document.getElementById('categoryDonutChart').getContext('2d');
+        const categoryDonutChart = new Chart(donutCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['소모품', '사무용품', '물류자재', '전자부품'],
+                datasets: [{
+                    data: [11405000, 9522000, 9034000, 4520500],
+                    backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6'],
+                    borderWidth: 2,
+                    borderColor: '#ffffff',
+                    hoverOffset: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { boxWidth: 12, font: { size: 11, family: 'sans-serif' } }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let value = context.raw;
+                                let total = 34481500;
+                                let percentage = ((value / total) * 100).toFixed(1);
+                                return ` ₩ ${value.toLocaleString()}원 (${percentage}%)`;
+                            }
+                        }
+                    }
+                },
+                onClick: (event, elements) => {
+                    if (elements.length > 0) {
+                        const index = elements[0].index;
+                        const categoryLabel = categoryDonutChart.data.labels[index];
+                        filterByCategory(categoryLabel);
+                    }
+                }
+            }
+        });
+
+        // Bar Chart: 품목별 현재재고 vs 안전재고 비교 (TOP 10 위험 품목)
+        const barCtx = document.getElementById('stockBarChart').getContext('2d');
+        const stockBarChart = new Chart(barCtx, {
+            type: 'bar',
+            data: {
+                labels: ['종이컵', '점보롤화장지', '핸드타월', '고속충전기', 'HDMI케이블', '외장SSD', '무선포인터', '에어캡롤', '박스테이프', '스트레치필름'],
+                datasets: [
+                    {
+                        label: '현재 재고수량',
+                        data: [25, 40, 35, 15, 50, 10, 22, 25, 22, 30],
+                        backgroundColor: '#f43f5e',
+                        borderRadius: 6
+                    },
+                    {
+                        label: '적정 안전재고 (기준 52.5)',
+                        data: [52.5, 52.5, 52.5, 52.5, 52.5, 52.5, 52.5, 52.5, 52.5, 52.5],
+                        backgroundColor: '#cbd5e1',
+                        borderRadius: 6
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { boxWidth: 12, font: { size: 11 } }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return ` ${context.dataset.label}: ${context.raw}개`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { borderDash: [4, 4] }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { size: 10 } }
+                    }
+                }
+            }
+        });
+
+        // --- 2. Table Search and Filtering ---
+        function filterTable() {
+            let input = document.getElementById('searchInput').value.toLowerCase();
+            let rows = document.querySelectorAll('#inventoryTable tbody tr');
+            
+            rows.forEach(row => {
+                let text = row.innerText.toLowerCase();
+                if (text.includes(input)) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+
+        function filterByCategory(category) {
+            let rows = document.querySelectorAll('#inventoryTable tbody tr');
+            rows.forEach(row => {
+                let cat = row.getAttribute('data-category');
+                if (cat === category) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+            document.getElementById('activeFilterBadge').classList.remove('hidden');
+            document.getElementById('filterName').innerText = category;
+        }
+
+        function resetFilter() {
+            let rows = document.querySelectorAll('#inventoryTable tbody tr');
+            rows.forEach(row => row.style.display = '');
+            document.getElementById('activeFilterBadge').classList.add('hidden');
+            document.getElementById('searchInput').value = '';
+        }
+
+        // --- 3. Modal Actions ---
+        function generateOrder(code, name, qty) {
+            document.getElementById('modalCode').innerText = code;
+            document.getElementById('modalName').innerText = name;
+            document.getElementById('modalQty').innerText = qty > 0 ? qty : 30; // 권장량 없을 시 기본 30
+            document.getElementById('orderModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('orderModal').classList.add('hidden');
+        }
+
+        function confirmOrder() {
+            alert('성공적으로 발주서가 공급업체로 전송되었습니다.');
+            closeModal();
+        }
+
+        // --- 4. File Upload & Excel Export Simulation ---
+        function triggerFileUpload() {
+            document.getElementById('excelUpload').click();
+        }
+
+        function handleFileAlert(event) {
+            if(event.target.files.length > 0) {
+                alert('새로운 엑셀 파일("' + event.target.files[0].name + '")이 업로드되었습니다. 대시보드 지표를 실시간 갱신합니다.');
+            }
+        }
+
+        function exportTableToExcel() {
+            alert('현재 재고 명세 데이터가 Excel 파일(.xlsx)로 성공적으로 다운로드되었습니다.');
+        }
+
+        // --- 5. Table Sorting Function ---
+        let sortDirection = false;
+        function sortTable(columnIndex) {
+            const table = document.getElementById("inventoryTable");
+            let switching = true;
+            let shouldSwitch, i;
+            let switchCount = 0;
+            
+            while (switching) {
+                switching = false;
+                let rows = table.rows;
+                for (i = 1; i < (rows.length - 1); i++) {
+                    shouldSwitch = false;
+                    let x = rows[i].getElementsByTagName("TD")[columnIndex];
+                    let y = rows[i + 1].getElementsByTagName("TD")[columnIndex];
+                    
+                    let xVal = x.innerText.replace(/,/g, '').trim();
+                    let yVal = y.innerText.replace(/,/g, '').trim();
+                    
+                    let xNum = parseFloat(xVal);
+                    let yNum = parseFloat(yVal);
+                    
+                    if (!isNaN(xNum) && !isNaN(yNum)) {
+                        if (sortDirection ? xNum > yNum : xNum < yNum) {
+                            shouldSwitch = true;
+                            break;
+                        }
+                    } else {
+                        if (sortDirection ? xVal > yVal : xVal < yVal) {
+                            shouldSwitch = true;
+                            break;
+                        }
+                    }
+                }
+                if (shouldSwitch) {
+                    rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+                    switching = true;
+                    switchCount++;
+                } else {
+                    if (switchCount === 0 && !sortDirection) {
+                        sortDirection = true;
+                        switching = true;
+                    }
+                }
+            }
+            sortDirection = !sortDirection;
+        }
+    </script>
+</body>
+</html>
